@@ -183,6 +183,81 @@ function validateBackup(parsed) {
   return out;
 }
 
+/* ---------- supabase cloud (optional: same login on mobile + laptop = same data) ---------- */
+const SUPA_KEYS = { url: 'pct_supabase_url', key: 'pct_supabase_key', autosync: 'pct_supabase_autosync' };
+let _supa = null, _pushTimer = null, _suppressPush = false;
+function supaGetConfig() {
+  try {
+    const u = localStorage.getItem(SUPA_KEYS.url) || '';
+    const k = localStorage.getItem(SUPA_KEYS.key) || '';
+    if (u && k) return { url: u, key: k };
+  } catch {}
+  return { url: 'https://pgybzwmulidsgythwwrc.supabase.co', key: 'sb_publishable_ME9I1WM1wU7ZonvA-km1Dw_L4dMGAOb' };
+}
+function supaClient() {
+  try {
+    const c = supaGetConfig();
+    if (!c.url || !c.key) return null;
+    if (!window.supabase || !window.supabase.createClient) return null;
+    if (!_supa || _supa._url !== c.url || _supa._key !== c.key) {
+      _supa = window.supabase.createClient(c.url, c.key);
+      _supa._url = c.url; _supa._key = c.key;
+    }
+    return _supa;
+  } catch { return null; }
+}
+function schedulePush() {
+  try { if (localStorage.getItem(SUPA_KEYS.autosync) === 'off') return; } catch {}
+  if (_suppressPush) return;
+  clearTimeout(_pushTimer);
+  _pushTimer = setTimeout(() => { supaPush(true).catch(() => {}); }, 1800);
+}
+async function supaPush(silent) {
+  const cl = supaClient();
+  if (!cl) { if (!silent) toast('Add Supabase URL + Key first.'); return false; }
+  try {
+    const { data: { user } } = await cl.auth.getUser();
+    if (!user) { if (!silent) toast('Login first to sync.'); return false; }
+    const backup = buildBackup();
+    const payload = { user_id: user.id, data: backup.data, updated_at: new Date().toISOString() };
+    const { error } = await cl.from('tracker_store').upsert(payload, { onConflict: 'user_id' });
+    if (error) throw error;
+    if (!silent) toast('Synced to cloud.');
+    const m = document.getElementById('supaMsg');
+    if (m) m.textContent = 'Last synced: ' + new Date().toLocaleString() + ' · ' + user.email;
+    return true;
+  } catch (e) {
+    if (!silent) {
+      const m = document.getElementById('supaMsg');
+      if (m) m.textContent = 'Sync failed: ' + ((e && e.message) || e);
+      toast('Cloud sync failed.');
+    }
+    return false;
+  }
+}
+async function supaPull() {
+  const cl = supaClient();
+  if (!cl) { toast('Add Supabase URL + Key first.'); return false; }
+  try {
+    const { data: { user } } = await cl.auth.getUser();
+    if (!user) { toast('Login first.'); return false; }
+    const { data, error } = await cl.from('tracker_store').select('data,updated_at').eq('user_id', user.id).maybeSingle();
+    if (error) throw error;
+    if (!data || !data.data) { toast('No cloud data yet — push first.'); return false; }
+    const clean = validateBackup(data.data);
+    if (!clean) { toast('Cloud data invalid.'); return false; }
+    const ok = await showConfirm({ title: 'Load cloud data?', message: 'Replace this device data with cloud data from ' + (data.updated_at || 'cloud') + '? This cannot be undone.', confirmLabel: 'Load cloud', danger: false });
+    if (!ok) return false;
+    _suppressPush = true;
+    S = clean; saveAll();
+    resetUIState();
+    ui.toastMsg = 'Cloud data loaded.';
+    render();
+    setTimeout(() => { _suppressPush = false; }, 800);
+    return true;
+  } catch (e) { toast('Load failed: ' + ((e && e.message) || e)); return false; }
+}
+
 /* ---------- state ---------- */
 let S = loadStore();
 function saveAll() {
@@ -194,6 +269,7 @@ function saveAll() {
   write(K.profile, S.profile); write(K.sources, S.sources); write(K.locations, S.locations);
   write(K.entries, S.entries); write(K.donations, S.donations);
   write(K.withdrawals, S.withdrawals); write(K.transfers, S.transfers);
+  try { schedulePush(); } catch {}
 }
 function sorted(arr) {
   return asArray(arr).sort((a, b) => {
@@ -1018,6 +1094,7 @@ function pageSettings() {
     '<div><label class="label" for="s-cur">Currency</label><select id="s-cur" class="input">' + C.map(c => '<option value="' + c + '"' + (prof.currency === c ? ' selected' : '') + '>' + c + '</option>').join('') + '</select></div>' +
     '<div><label class="label" for="s-pct">Charity % (0–100, default 10)</label><input id="s-pct" class="input" type="number" min="0" max="100" step="1" inputmode="numeric" value="' + esc(String(prof.charity_percent)) + '"></div>' +
     '<button class="btn btn-primary">Save settings</button></form>' +
+    '<div class="card"><h2>Account — sync mobile + laptop</h2><p class="small">Login with same email on both devices = same data. Needs free Supabase project (2 keys below, one-time). Leave empty to stay offline-only.</p><div style="display:flex;flex-direction:column;gap:10px"><div><label class="label" for="supa-url">Supabase URL</label><input id="supa-url" class="input" inputmode="url" placeholder="https://xyz.supabase.co" autocomplete="off"></div><div><label class="label" for="supa-key">Supabase anon key</label><input id="supa-key" class="input" type="password" placeholder="eyJ..." autocomplete="off"></div><div class="flex-gap"><button id="supaSave" type="button" class="btn btn-ghost">Save keys</button><label class="small" style="display:flex;align-items:center;gap:8px"><input type="checkbox" id="supa-auto" checked> Auto-sync on save</label></div><div class="form-2"><div><label class="label" for="supa-email">Email</label><input id="supa-email" class="input" type="email" autocomplete="email" placeholder="you@email.com"></div><div><label class="label" for="supa-pass">Password</label><input id="supa-pass" class="input" type="password" autocomplete="current-password" placeholder="min 6 chars"></div></div><div class="flex-gap"><button id="supaLogin" type="button" class="btn btn-primary">Login</button><button id="supaSignup" type="button" class="btn btn-ghost">Sign up</button><button id="supaLogout" type="button" class="btn btn-ghost">Logout</button></div><div class="flex-gap"><button id="supaPush" type="button" class="btn btn-ghost">Push to cloud ↑</button><button id="supaPull" type="button" class="btn btn-ghost">Pull from cloud ↓</button></div><p id="supaMsg" class="small" role="status" style="margin:0">Not connected.</p></div></div>' +
     '<div class="card"><h2>Backup & restore</h2><p class="small">Save everything to one JSON file — profile, sources, locations, entries, donations, withdrawals. Keep it in Drive / email. Restore on any device or browser.</p><div class="flex-gap"><button id="backupExport" type="button" class="btn btn-primary">Download backup</button><button id="backupImportBtn" type="button" class="btn btn-ghost">Restore backup</button></div><input type="file" id="backupFile" accept=".json,application/json" style="display:none" aria-label="Choose backup JSON file"><p id="backupMsg" class="small" role="status" style="margin:8px 0 0"></p></div>' +
     '<div class="card"><h2>Danger zone</h2><p class="small">Erase every entry, location, withdrawal, donation and source stored in this browser.</p><button id="wipe" class="btn btn-danger">Erase all device data</button></div></div>';
 }
@@ -1096,6 +1173,66 @@ function bindSettings() {
       try { rd.readAsText(f); } catch {}
     };
   }
+  // supabase account wiring
+  try {
+    const cfg = supaGetConfig();
+    const urlIn = document.getElementById('supa-url'), keyIn = document.getElementById('supa-key');
+    const autoIn = document.getElementById('supa-auto'), msgEl = document.getElementById('supaMsg');
+    if (urlIn) urlIn.value = cfg.url || '';
+    if (keyIn) keyIn.value = cfg.key || '';
+    if (autoIn) { try { autoIn.checked = localStorage.getItem(SUPA_KEYS.autosync) !== 'off'; } catch { autoIn.checked = true; } }
+    const setMsg = t => { if (msgEl) msgEl.textContent = t; };
+    const cl0 = supaClient();
+    if (!cfg.url || !cfg.key) setMsg('Not connected — paste Supabase URL + anon key.');
+    else if (!window.supabase) setMsg('Supabase library not loaded (need internet once).');
+    else {
+      cl0.auth.getUser().then(({ data }) => {
+        if (data && data.user) setMsg('Logged in as ' + data.user.email + ' · auto-sync ' + (autoIn && !autoIn.checked ? 'OFF' : 'ON'));
+        else setMsg('Keys saved — login / sign up below.');
+      }).catch(() => setMsg('Keys saved — login / sign up below.'));
+    }
+    const sv = document.getElementById('supaSave');
+    if (sv) sv.onclick = () => {
+      try {
+        localStorage.setItem(SUPA_KEYS.url, (urlIn.value || '').trim());
+        localStorage.setItem(SUPA_KEYS.key, (keyIn.value || '').trim());
+        localStorage.setItem(SUPA_KEYS.autosync, autoIn && autoIn.checked ? 'on' : 'off');
+      } catch {}
+      _supa = null;
+      setMsg('Keys saved. Now login / sign up.');
+      toast('Supabase keys saved.');
+    };
+    if (autoIn) autoIn.onchange = () => { try { localStorage.setItem(SUPA_KEYS.autosync, autoIn.checked ? 'on' : 'off'); } catch {} };
+    const email = () => (document.getElementById('supa-email').value || '').trim();
+    const pass = () => document.getElementById('supa-pass').value || '';
+    const li = document.getElementById('supaLogin');
+    if (li) li.onclick = async () => {
+      const cl = supaClient(); if (!cl) return setMsg('Save Supabase URL + Key first.');
+      if (!email() || pass().length < 6) return setMsg('Enter valid email + password (min 6).');
+      setMsg('Logging in…');
+      const { error } = await cl.auth.signInWithPassword({ email: email(), password: pass() });
+      if (error) return setMsg('Login failed: ' + error.message);
+      setMsg('Logged in. Pulling cloud data…');
+      toast('Logged in.');
+      await supaPull();
+    };
+    const su = document.getElementById('supaSignup');
+    if (su) su.onclick = async () => {
+      const cl = supaClient(); if (!cl) return setMsg('Save Supabase URL + Key first.');
+      if (!email() || pass().length < 6) return setMsg('Enter valid email + password (min 6).');
+      setMsg('Creating account…');
+      const { error } = await cl.auth.signUp({ email: email(), password: pass() });
+      if (error) return setMsg('Signup failed: ' + error.message);
+      setMsg('Account created. Check email if asked to confirm, then Login.');
+      toast('Account created — now Login.');
+    };
+    const lo = document.getElementById('supaLogout');
+    if (lo) lo.onclick = async () => { const cl = supaClient(); if (cl) await cl.auth.signOut(); setMsg('Logged out. Local data kept on this device.'); toast('Logged out.'); };
+    const pu = document.getElementById('supaPush');
+    if (pu) pu.onclick = () => supaPush(false);
+    const pl = document.getElementById('supaPull');
+    if (pl) pl.onclick = () => supaPull();
+  } catch {}
 }
 
 /* ---------- render ---------- */
