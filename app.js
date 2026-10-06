@@ -1093,7 +1093,7 @@ function pageSettings() {
     '<div><label class="label" for="s-cur">Currency</label><select id="s-cur" class="input">' + C.map(c => '<option value="' + c + '"' + (prof.currency === c ? ' selected' : '') + '>' + c + '</option>').join('') + '</select></div>' +
     '<div><label class="label" for="s-pct">Charity % (0–100, default 10)</label><input id="s-pct" class="input" type="number" min="0" max="100" step="1" inputmode="numeric" value="' + esc(String(prof.charity_percent)) + '"></div>' +
     '<button class="btn btn-primary">Save settings</button></form>' +
-    '<div class="card"><h2>Account — sync mobile + laptop</h2><p class="small">Login with same email on both devices = same data. Auto-sync is ON.</p><div style="display:flex;flex-direction:column;gap:10px"><div class="form-2"><div><label class="label" for="supa-email">Email</label><input id="supa-email" class="input" type="email" autocomplete="email" placeholder="you@email.com"></div><div><label class="label" for="supa-pass">Password</label><input id="supa-pass" class="input" type="password" autocomplete="current-password" placeholder="min 6 chars"></div></div><div class="flex-gap"><button id="supaLogin" type="button" class="btn btn-primary">Login</button><button id="supaSignup" type="button" class="btn btn-ghost">Sign up</button><button id="supaLogout" type="button" class="btn btn-ghost">Logout</button></div><div class="flex-gap"><button id="supaPush" type="button" class="btn btn-primary">Push to cloud ↑</button><button id="supaPull" type="button" class="btn btn-ghost">Pull from cloud ↓</button></div><p id="supaMsg" class="small" role="status" style="margin:0">Not connected.</p></div></div>' +
+    '<div class="card"><h2>Account — sync mobile + laptop</h2><p id="supaState" class="small" role="status" style="margin:0 0 4px;font-weight:800">○ Logged out</p><p class="small">Login with same email on both devices = same data. Auto-sync is ON.</p><div style="display:flex;flex-direction:column;gap:10px"><div class="form-2" id="supa-creds"><div><label class="label" for="supa-email">Email</label><input id="supa-email" class="input" type="email" autocomplete="email" placeholder="you@email.com"></div><div><label class="label" for="supa-pass">Password</label><input id="supa-pass" class="input" type="password" autocomplete="current-password" placeholder="min 6 chars"></div></div><div class="flex-gap"><button id="supaLogin" type="button" class="btn btn-primary">Login</button><button id="supaSignup" type="button" class="btn btn-ghost">Sign up</button><button id="supaLogout" type="button" class="btn btn-ghost">Logout</button></div><div class="flex-gap"><button id="supaPush" type="button" class="btn btn-primary">Push to cloud ↑</button><button id="supaPull" type="button" class="btn btn-ghost">Pull from cloud ↓</button></div><p id="supaMsg" class="small" role="status" style="margin:0">Not connected.</p></div></div>' +
     '<div class="card"><h2>Backup & restore</h2><p class="small">Save everything to one JSON file — profile, sources, locations, entries, donations, withdrawals. Keep it in Drive / email. Restore on any device or browser.</p><div class="flex-gap"><button id="backupExport" type="button" class="btn btn-primary">Download backup</button><button id="backupImportBtn" type="button" class="btn btn-ghost">Restore backup</button></div><input type="file" id="backupFile" accept=".json,application/json" style="display:none" aria-label="Choose backup JSON file"><p id="backupMsg" class="small" role="status" style="margin:8px 0 0"></p></div>' +
     '<div class="card"><h2>Danger zone</h2><p class="small">Erase every entry, location, withdrawal, donation and source stored in this browser.</p><button id="wipe" class="btn btn-danger">Erase all device data</button></div></div>';
 }
@@ -1172,19 +1172,36 @@ function bindSettings() {
       try { rd.readAsText(f); } catch {}
     };
   }
-  // supabase account wiring (keys built-in, auto-sync always ON)
+  // supabase account wiring (keys built-in, auto-sync always ON, clear login/logout state)
   try {
     const cfg = supaGetConfig();
     const msgEl = document.getElementById('supaMsg');
+    const stateEl = document.getElementById('supaState');
     const setMsg = t => { if (msgEl) msgEl.textContent = t; };
+    const refreshAuthUI = (loggedIn, email) => {
+      const creds = document.getElementById('supa-creds');
+      const li = document.getElementById('supaLogin'), su = document.getElementById('supaSignup'), lo = document.getElementById('supaLogout');
+      const pu = document.getElementById('supaPush'), pl = document.getElementById('supaPull');
+      if (creds) creds.style.display = loggedIn ? 'none' : '';
+      if (li) li.style.display = loggedIn ? 'none' : '';
+      if (su) su.style.display = loggedIn ? 'none' : '';
+      if (lo) lo.style.display = loggedIn ? '' : 'none';
+      if (pu) { pu.disabled = !loggedIn; pu.style.opacity = loggedIn ? '1' : '.5'; }
+      if (pl) { pl.disabled = !loggedIn; pl.style.opacity = loggedIn ? '1' : '.5'; }
+      if (stateEl) {
+        stateEl.textContent = loggedIn ? '● Logged in as ' + email : '○ Logged out';
+        stateEl.style.color = loggedIn ? '#047857' : '#64748b';
+      }
+    };
     const cl0 = supaClient();
-    if (!cfg.url || !cfg.key) setMsg('Cloud not configured.');
-    else if (!window.supabase) setMsg('Need internet once to load login.');
+    if (!cfg.url || !cfg.key) { setMsg('Cloud not configured.'); refreshAuthUI(false); }
+    else if (!window.supabase) { setMsg('Need internet once to load login.'); refreshAuthUI(false); }
     else {
+      refreshAuthUI(false); setMsg('Checking…');
       cl0.auth.getUser().then(({ data }) => {
-        if (data && data.user) setMsg('Logged in as ' + data.user.email + ' · auto-sync ON');
-        else setMsg('Login / sign up below.');
-      }).catch(() => setMsg('Login / sign up below.'));
+        if (data && data.user) { setMsg('Last synced: auto-sync ON · ' + data.user.email); refreshAuthUI(true, data.user.email); }
+        else { setMsg('Login / sign up below.'); refreshAuthUI(false); }
+      }).catch(() => { setMsg('Login / sign up below.'); refreshAuthUI(false); });
     }
     const email = () => (document.getElementById('supa-email').value || '').trim();
     const pass = () => document.getElementById('supa-pass').value || '';
@@ -1210,7 +1227,7 @@ function bindSettings() {
       toast('Account created — now Login.');
     };
     const lo = document.getElementById('supaLogout');
-    if (lo) lo.onclick = async () => { const cl = supaClient(); if (cl) await cl.auth.signOut(); setMsg('Logged out. Local data kept on this device.'); toast('Logged out.'); };
+    if (lo) lo.onclick = async () => { const cl = supaClient(); if (cl) await cl.auth.signOut(); setMsg('Logged out. Local data kept on this device.'); refreshAuthUI(false); toast('Logged out.'); };
     const pu = document.getElementById('supaPush');
     if (pu) pu.onclick = () => supaPush(false);
     const pl = document.getElementById('supaPull');
