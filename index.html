@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Profit &amp; Charity Tracker</title>
+<meta name="description" content="Track profit, money locations, charity and personal share. Fast HTML + CSS + JS only.">
+<meta name="theme-color" content="#0d9488">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='24' fill='%230d9488'/><text x='50' y='68' font-size='52' text-anchor='middle' fill='white'>◈</text></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Fraunces:opsz,wght@9..144,600;9..144,700&display=swap">
+<link rel="stylesheet" href="./styles.css">
+<script>(function(){try{var t=localStorage.getItem('pct-theme');if(t==='dark'||(!t&&matchMedia('(prefers-color-scheme: dark)').matches)){document.documentElement.classList.add('dark')}}catch(e){}})();</script>
+</head>
+<body>
+<a href="#main" class="skip-link">Skip to content</a>
+<div class="mob-spacer" aria-hidden="true"></div>
+<div class="layout">
+  <aside class="sidebar">
+    <a href="#/" class="brand" aria-label="Profit and Charity home">
+      <span class="logo-mark" aria-hidden="true">◈</span>
+      <span class="brand-text"><b>Profit &amp; Charity</b><span>Wealth · Giving</span></span>
+    </a>
+    <nav aria-label="Primary">
+      <div class="nav-label">Workspace</div>
+      <a data-nav href="#/"><span class="nav-ic" aria-hidden="true">◈</span>Home</a>
+      <a data-nav href="#/entries"><span class="nav-ic" aria-hidden="true">＋</span>Entries</a>
+      <a data-nav href="#/locations"><span class="nav-ic" aria-hidden="true">◍</span>Money &amp; Sources</a>
+      <a data-nav href="#/withdrawals"><span class="nav-ic" aria-hidden="true">⤓</span>Withdraw</a>
+      <div class="nav-label">Giving &amp; Insight</div>
+      <a data-nav href="#/charity"><span class="nav-ic" aria-hidden="true">♥</span>Charity</a>
+      <a data-nav href="#/reports"><span class="nav-ic" aria-hidden="true">▤</span>Reports</a>
+      <a data-nav href="#/settings"><span class="nav-ic" aria-hidden="true">⚙</span>Settings</a>
+    </nav>
+    <div class="side-foot">
+      <div class="side-card"><b>100% private.</b><br>Everything lives on this device — no login, no cloud.</div>
+      <button type="button" data-theme-btn class="btn btn-ghost" aria-label="Switch color mode">☀ Light · tap for Dark</button>
+    </div>
+  </aside>
+
+  <div class="topbar">
+    <a href="#/" class="brand"><span class="logo-mark" aria-hidden="true">◈</span>Profit &amp; Charity</a>
+    <button type="button" data-theme-btn class="btn btn-ghost btn-sm" aria-label="Switch color mode">☀ · Dark</button>
+  </div>
+
+  <main id="main" tabindex="-1"></main>
+</div>
+
+<nav class="bottomnav" aria-label="Mobile primary">
+  <a data-nav href="#/"><span class="ic" aria-hidden="true">◈</span>Home</a>
+  <a data-nav href="#/entries"><span class="ic" aria-hidden="true">＋</span>Entries</a>
+  <a data-nav href="#/locations"><span class="ic" aria-hidden="true">◍</span>Money</a>
+  <a data-nav href="#/withdrawals"><span class="ic" aria-hidden="true">⤓</span>Withdraw</a>
+  <a data-nav href="#/charity"><span class="ic" aria-hidden="true">♥</span>Charity</a>
+  <a data-nav href="#/reports"><span class="ic" aria-hidden="true">▤</span>Reports</a>
+  <a data-nav href="#/settings"><span class="ic" aria-hidden="true">⚙</span>Settings</a>
+</nav>
+
+<script src="./app.js"></script>
+</body>
+</html>
