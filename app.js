@@ -379,7 +379,7 @@ function focusHeading() {
 }
 
 let ui = {
-  dashPeriod: 'this_month', dashFrom: '', dashTo: '',
+  dashPeriod: 'all', dashFrom: '', dashTo: '',
   eSearch: '', eMonth: '', eSource: '', eLoc: '', eType: '', editingEntry: null,
   wMonth: '', repYear: String(new Date().getFullYear()),
   editingLoc: null, renamingSource: null, moneyTab: 'locations',
