@@ -190,9 +190,9 @@ function supaGetConfig() {
   try {
     const u = localStorage.getItem(SUPA_KEYS.url) || '';
     const k = localStorage.getItem(SUPA_KEYS.key) || '';
-    if (u && k && u.indexOf('pgybzwmulidsgythwwrc') === -1) return { url: u, key: k };
+    if (u && k && u.indexOf('btbxqpphrckfgkwytvpw') !== -1) return { url: u, key: k };
   } catch {}
-  return { url: 'https://btbxqpphrckfgkwytvpw.supabase.co', key: 'sb_publishable_HhdisQ2VUsXdktYaWzrZyg_XX7TLNn2' };
+  return { url: 'https://btbxqpphrckfgkwytvpw.supabase.co', key: 'sb_publishable_oHuyjta_Olf4SKQYFA3Ouw_Hbn7GuG8' };
 }
 function supaClient() {
   try {
